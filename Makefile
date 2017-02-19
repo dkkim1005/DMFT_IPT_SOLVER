@@ -5,10 +5,10 @@ TARGET = IPT
 
 all : $(TARGET)
 
-$(TARGET): IPT.o pade.o
+$(TARGET): main.o pade.o
 	$(CC) -o $@ $^ $(LIBS) $(OPT)
 
-IPT.o : IPT.cpp
+main.o : main.cpp
 	$(CC) -c -o $@ $^ $(OPT)
 
 pade.o : pade.cpp

@@ -62,7 +62,7 @@ namespace lapack
 
 
 
-
+// Fermionic Green's function within the frequency domain
 class MatsubaraFreqGreen {
 public:
 	explicit MatsubaraFreqGreen(const size_t nw)
@@ -87,6 +87,28 @@ public:
 	: g_wn(&rhs[0], &rhs[0]+rhs.size())
 	{
 		_g_wn = &g_wn[0];
+	}
+
+	explicit MatsubaraFreqGreen(const char FILE_NAME[])
+	{
+		std::ifstream readFile(FILE_NAME);
+		assert(readFile.is_open());
+
+		std::vector<dcomplex> G_temp;
+
+		while(!readFile.eof())
+		{
+			double iwn = 0, G_real = 0, G_imag = 0;
+			// file format : iwn	Re(G)	Im(G)
+			readFile >> iwn; readFile >> G_real; readFile >> G_imag;
+			G_temp.push_back(dcomplex(G_real,G_imag));
+		}
+
+		readFile.close();
+
+		std::vector<dcomplex>(G_temp.data(),G_temp.data() + G_temp.size() - 1).swap(g_wn);
+
+		_g_wn = g_wn.data();
 	}
 
 	~MatsubaraFreqGreen() {}
@@ -152,14 +174,36 @@ public:
 		return G;
 	}
 
-	void print(const std::string FILE_NAME, const double BETA=1.)
+	void print(const char FILE_NAME[], const double BETA=1.) const
 	{
-		std::ofstream file(FILE_NAME.c_str());
+		std::ofstream file(FILE_NAME);
 		for(int i=0;i<g_wn.size();++i)
 		{
 			double wn = (2*i+1)*M_PI/BETA;
 			file<<wn<<" "<<g_wn[i].real()<<" "<<g_wn[i].imag()<<std::endl;
 		}
+	}
+
+	void read(const char FILE_NAME[])
+	{
+		std::ifstream readFile(FILE_NAME);
+		assert(readFile.is_open());
+
+		std::vector<dcomplex> G_temp;
+
+		while(!readFile.eof())
+		{
+			double iwn = 0, G_real = 0, G_imag = 0;
+			// file format : iwn	Re(G)	Im(G)
+			readFile >> iwn; readFile >> G_real; readFile >> G_imag;
+			G_temp.push_back(dcomplex(G_real,G_imag));
+		}
+
+		readFile.close();
+
+		std::vector<dcomplex>(G_temp.data(),G_temp.data() + G_temp.size() - 1).swap(g_wn);
+
+		_g_wn = g_wn.data();
 	}
 
 private:
@@ -294,6 +338,7 @@ inline MatsubaraFreqGreen create_BetheGf(const double beta,const double mu,const
 }
 
 
+// Fermionic imaginary time Green's function
 class MatsubaraTimeGreen
 {
 public:
@@ -321,6 +366,28 @@ public:
 		assert(g_tau.size() == rhs.size());
 		_g_tau = g_tau.data();
 		//for(size_t i=0;i<g_tau.size();++i) g_tau[i] = rhs[i];
+	}
+
+	explicit MatsubaraTimeGreen(const char FILE_NAME[]) 
+	{
+		std::ifstream readFile(FILE_NAME);
+		assert(readFile.is_open());
+
+		std::vector<double> G_temp;
+
+		while(!readFile.eof())
+		{
+			// file format : tau	G(tau)
+			double tau = 0; double Gtau = 0;
+			readFile >> tau; readFile >> Gtau;
+			G_temp.push_back(Gtau);
+		}
+
+		readFile.close();
+
+		std::vector<double>(G_temp.data(),G_temp.data() + G_temp.size() - 1).swap(g_tau);
+
+		_g_tau = g_tau.data();
 	}
 
 	MatsubaraTimeGreen& operator=(const MatsubaraTimeGreen& rhs)
@@ -377,14 +444,35 @@ public:
 		return G;
 	}
 
-	void print(const std::string FILE_NAME, const double BETA=1.)
+	void print(const char FILE_NAME[], const double BETA=1.) const
 	{
-		std::ofstream file(FILE_NAME.c_str());
+		std::ofstream file(FILE_NAME);
 		for(int i=0;i<g_tau.size();++i)
 		{
 			double tau = BETA*i/(g_tau.size() - 1.);
 			file<<tau<<" "<<g_tau[i]<<std::endl;
 		}
+	}
+
+	void read(const char FILE_NAME[])
+	{
+		std::ifstream readFile(FILE_NAME);
+		assert(readFile.is_open());
+	
+		std::vector<double> G_temp;
+
+		while(!readFile.eof())
+		{
+			double tau = 0, Gtau = 0;
+			readFile >> tau; readFile >> Gtau;
+			G_temp.push_back(Gtau);
+		}
+		
+		readFile.close();
+
+		std::vector<double>(G_temp.data(),G_temp.data() + G_temp.size() - 1).swap(g_tau);
+
+		_g_tau = g_tau.data();
 	}
 
 private:

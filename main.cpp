@@ -41,6 +41,7 @@ private:
 };
 
 
+
 int main(int argc,char* argv[])
 {
 	const double BETA = 30;
@@ -82,6 +83,19 @@ int main(int argc,char* argv[])
 		}
 		numIter += 1;
 	}	
+
+	// Double occupancy
+	auto self_energy_iwn = U/2. + inverse(g0_iw) - inverse(G_iw);
+
+	auto kernel = self_energy_iwn * G_iw;
+
+	for(auto& k : kernel)
+		k = std::conj(k);
+
+	double D = 1./(U) * (fft_InverseFourier(&kernel[0],Nw,BETA,{-U/2.,0,0},Nt))[0];
+
+	std::cout<<"D:"<<D<<std::endl;
+
 
 	MatsubaraTimeGreen G_tau = fft_InverseFourier(&G_iw[0],Nw,BETA,M,Nt);
 

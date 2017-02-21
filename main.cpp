@@ -94,7 +94,7 @@ int main(int argc,char* argv[])
 
 	double D = 1./(U) * (fft_InverseFourier(&kernel[0],Nw,BETA,{-U/2.,0,0},Nt))[0];
 
-	std::cout<<"D:"<<D<<std::endl;
+	std::cout<<"Double occupancy:"<<D<<std::endl;
 
 
 	MatsubaraTimeGreen G_tau = fft_InverseFourier(&G_iw[0],Nw,BETA,M,Nt);

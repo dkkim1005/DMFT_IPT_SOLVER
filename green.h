@@ -1018,18 +1018,18 @@ std::vector<dcomplex> fft_Fourier(const double* G_tau, const size_t TAU_MESH, co
 	assert(TAU_MESH/2 >= WN_MESH);
 	const double dTau = BETA/(TAU_MESH - 1.);
 
-	// The Simpson integration law is applied. ----> In our implementation, something goes wrong. It should be fixed... :( 
+	// The Simpson integration law is applied.
 	auto generSimpsWeight = [](dcomplex* gt, const double dTau, const size_t TAU_MESH) -> void
 			{
-				/*
-				assert(TAU_MESH%2 ==0);
-                		for(int i=1;i<TAU_MESH; i+=2) gt[i] *= 4.;
-                		for(int i=2;i<TAU_MESH-1; i+=2) gt[i] *= 2;
+				assert(TAU_MESH%2 == 1);
+                		for(int i=1;i<TAU_MESH-1; i+=2) gt[i] *= 4.;
+                		for(int i=2;i<TAU_MESH-2; i+=2) gt[i] *= 2.;
 				for(int i=0;i<TAU_MESH;++i)
 					gt[i] *= dTau/3.;
-				*/ 
+				/*
 				for(int i=0;i<TAU_MESH;++i)
 					gt[i] *= dTau;
+				*/
 			};
 
 	std::vector<dcomplex> g_mod(TAU_MESH,0);

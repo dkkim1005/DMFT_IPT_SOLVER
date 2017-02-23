@@ -46,11 +46,11 @@ int main(int argc,char* argv[])
 {
 	const double BETA = 30;
 	const double U = std::atof(argv[1]);
-	const size_t Nt = 10000;
+	const size_t Nt = 10001;
 	const size_t Nw = 1000;
-	const double CONV = 1e-5;
-	const size_t PADE_PRECISION = 520;
-	const size_t PADE_N_POINTS = 300;
+	const double CONV = 1e-8;
+	const size_t PADE_PRECISION = 1024;
+	const size_t PADE_N_POINTS = 220;
 	std::vector<double> M = {1,0,0.25}; // spectral moments for the non-interacting Bethe-lattice green function.
 	int numIter = 1;
 
@@ -87,6 +87,8 @@ int main(int argc,char* argv[])
 	// Double occupancy
 	auto self_energy_iwn = U/2. + inverse(g0_iw) - inverse(G_iw);
 
+	self_energy_iwn.print("self_energy.out",BETA);
+
 	auto kernel = self_energy_iwn * G_iw;
 
 	for(auto& k : kernel)
@@ -96,11 +98,13 @@ int main(int argc,char* argv[])
 
 	std::cout<<"Double occupancy:"<<D<<std::endl;
 
-
 	MatsubaraTimeGreen G_tau = fft_InverseFourier(&G_iw[0],Nw,BETA,M,Nt);
 
 	G_tau.print("gtau.out",BETA);
 
+	auto delta = std::pow(1./2.,2)*G_iw;
+
+	delta.print("delta.out",BETA);
 
 	// analytic-continuation with the Pade approximation.
 	if(argc >= 3)

@@ -24,7 +24,7 @@ int main(int argc,char* argv[])
 	argparser.add_option("GFile","A name of a file storing a full green function");
 	argparser.store();
 
-	if(argparser.isOptionExist("help"))
+	if(argc == 1)
 	{
 		argparser.load_help_option();
 		return 1;

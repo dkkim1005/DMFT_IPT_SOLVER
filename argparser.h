@@ -14,11 +14,7 @@ class boost_argparser
 {
 public:
 	boost_argparser(int Argc, char** Argv)
-	: _Argc(Argc), _Argv(Argv), _desc("Allowed options"), isDataStored(false)
-	{
-		_desc.add_options()
-			("help","produce help message");
-	}
+	: _Argc(Argc), _Argv(Argv), _desc("Allowed options"), isDataStored(false) {}
 
 	void add_option(const char optionName[], const char Description[] = "None")
 	{

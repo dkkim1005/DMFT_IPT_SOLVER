@@ -1,6 +1,6 @@
 CC = g++
 OPT = -std=c++14
-LIBS = -lopenblas -llapack -lfftw3 -lgmpxx -lgmp
+LIBS = -lopenblas -llapack -lfftw3 -lgmpxx -lgmp -lboost_program_options
 TARGET = IPT
 
 all : $(TARGET)

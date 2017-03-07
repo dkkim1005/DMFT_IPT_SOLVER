@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <assert.h>
 #include <fftw3.h>
+#include <boost/math/special_functions/legendre.hpp>
 #ifndef __GREENFUNCTION__
 #define __GREENFUNCTION__
 // compile option  : -std=c++11  or -std=c++14
@@ -224,6 +225,14 @@ inline MatsubaraFreqGreen operator-(const MatsubaraFreqGreen& lhs,const Matsubar
 	const size_t nw = lhs.get_nw();
 	MatsubaraFreqGreen Gf(nw);
 	for(size_t i=0;i<nw;i++) Gf[i] = lhs[i] - rhs[i];
+	return Gf;
+}
+
+inline MatsubaraFreqGreen operator*(const MatsubaraFreqGreen& lhs, const MatsubaraFreqGreen& rhs)
+{
+	const size_t nw = lhs.get_nw();	
+	std::vector<dcomplex> Gf(nw);
+	for(size_t i=0;i<nw;i++) Gf[i] = lhs[i]*rhs[i];
 	return Gf;
 }
 
@@ -573,6 +582,152 @@ inline const std::ostream& operator<<(const std::ostream& lhs,const MatsubaraTim
 	std::cout<<"..."<<std::endl;
 	std::cout<<"..."<<std::endl;
 	for(size_t n=nt-5;n<nt;n++) std::cout<<"G["<<n<<"] : "<<Gin[n]<<std::endl;
+	return lhs;
+}
+
+
+class LegendreGreen
+{
+public:
+	explicit LegendreGreen(const size_t L_MAX = 30)
+	: _Gl(L_MAX,0) 
+	{
+		_gl = _Gl.data();
+	}
+
+	LegendreGreen(const MatsubaraTimeGreen& Gtau, const double BETA, const size_t L_MAX = 30)
+	: _Gl(L_MAX,0) 
+	{
+		ImagTimeToLegendre(Gtau,BETA);
+		_gl = _Gl.data();
+	}
+
+	explicit LegendreGreen(const char FILE_NAME[])
+	{
+		std::ifstream readFile(FILE_NAME);
+		assert(readFile.is_open());
+
+		std::vector<double> G_temp;
+
+		while(!readFile.eof())
+		{
+			// file format : l	G(tau)
+			double l = 0; double Gl = 0;
+			readFile >> l; readFile >> Gl;
+			G_temp.push_back(Gl);
+		}
+
+		readFile.close();
+
+		std::vector<double>(G_temp.data(),G_temp.data() + G_temp.size() - 1).swap(_Gl);
+
+		_gl = _Gl.data();
+	}
+
+
+	LegendreGreen& operator=(const LegendreGreen& rhs)
+	{
+		assert(_Gl.size() == rhs.size());
+		std::memcpy(&_gl[0],&rhs[0],sizeof(double)*_Gl.size());
+	}
+
+	double& operator[](const int i) const
+	{
+		return _gl[i];
+	}
+
+	size_t size() const
+	{
+		return _Gl.size();
+	}
+
+	std::vector<double>::iterator begin()
+	{
+		return _Gl.begin();
+	}
+
+	std::vector<double>::iterator end()
+	{
+		return _Gl.end();
+	}
+
+	std::vector<double>::const_iterator begin() const
+	{
+		return _Gl.begin();
+	}
+
+	std::vector<double>::const_iterator end() const
+	{
+		return _Gl.end();
+	}
+
+	void ImagTimeToLegendre(const MatsubaraTimeGreen& Gtau, const double BETA)
+	{
+		const double dTau = BETA/(Gtau.size() - 1.);
+		std::vector<double> x(Gtau.size());
+
+		for(int i=0;i<Gtau.size();++i)
+			x[i] = 2*dTau*i/BETA - 1.;
+
+		auto SimpsIntegrate = [](double* f, const double dx, const size_t Size) -> double
+				{
+					assert(Size%2 == 1);
+					double accum = 0;
+					
+					accum += f[0] + f[Size-1];
+       	         			for(int i=1;i<Size-1; i+=2) accum += 4.*f[i];
+                			for(int i=2;i<Size-2; i+=2) accum += 2.*f[i];
+					accum *= dx/3.;
+					
+					return accum;
+				};
+
+		for(int l=0;l<_Gl.size();++l)
+		{
+			std::vector<double> PlDotGtau(Gtau.size());
+			for(int i=0;i<Gtau.size();++i)
+				PlDotGtau[i] = boost::math::legendre_p(l,x[i]) * Gtau[i];
+			_Gl[l] = std::sqrt(2*l+1) * SimpsIntegrate(&PlDotGtau[0],dTau,Gtau.size());
+		}
+
+	}
+
+	std::vector<double> getMomentsFromLegendre(const double BETA) const
+	{
+		std::vector<double> M = {0,0,0};
+		for(int l=0;l< _Gl.size();l+=2) 
+			M[0] += -2*std::sqrt(2*l+1)*_Gl[l]/BETA;
+		for(int l=1;l< _Gl.size();l+=2)
+			M[1] += 2*std::sqrt(2*l+1)*_Gl[l]*l*(l+1)/std::pow(BETA,2);
+		for(int l=0;l< _Gl.size();l+=2)
+			M[2] += -std::sqrt(2*l+1)*_Gl[l]*(l+2)*(l+1)*l*(l-1)/std::pow(BETA,3);
+
+		return M;
+	}
+
+	void print(const char FILE_NAME[]) const
+	{
+		std::ofstream file(FILE_NAME);
+		for(int l=0;l<_Gl.size();++l)
+			file<<l<<" "<<_Gl[l]<<std::endl;
+	}
+
+private:
+	std::vector<double> _Gl;
+	double* _gl = nullptr;
+};
+
+
+inline const std::ostream& operator<<(const std::ostream& lhs,const LegendreGreen& Gin) 
+{
+	assert(Gin.size() >= 10);
+	const size_t nw = Gin.size();
+	for(size_t n=0;n<5;n++) std::cout<<"G["<<n<<"] : "<<Gin[n]<<std::endl;
+	std::cout<<"..."<<std::endl;
+	std::cout<<"..."<<std::endl;
+	std::cout<<"..."<<std::endl;
+	std::cout<<"..."<<std::endl;
+	for(size_t n=nw-5;n<nw;n++) std::cout<<"G["<<n<<"] : "<<Gin[n]<<std::endl;
 	return lhs;
 }
 

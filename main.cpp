@@ -1,54 +1,40 @@
 #include "green.h"
 #include "pade.h"
+#include "solver_ipt.h"
+#include "argparser.h"
 
-// Half-filling IPT solver for DMFT
-class IPTSolver
+double doubleOccupancy(const MatsubaraFreqGreen& G_iw, const MatsubaraFreqGreen& self_energy_iw, const double U, const size_t Nt, const double BETA)
 {
-public:
-	IPTSolver(const double U, const double BETA, const size_t Nt, const size_t Nw)
-	: _U(U), _BETA(BETA), _Nt(Nt), _Nw(Nw), _G_iw_history(Nw) {}
+	auto kernel = self_energy_iw * G_iw;
+	for(auto& k : kernel)
+		k = std::conj(k);
+	double D = 1./(U) * (fft_InverseFourier(&kernel[0],kernel.size(),BETA,{-U/2.,0,0},Nt))[0];
 
-	double solve(MatsubaraFreqGreen& G_iw, const MatsubaraFreqGreen& g0_iw, const std::vector<double> M)
-	{
-		MatsubaraTimeGreen g0_tau = fft_InverseFourier(&g0_iw[0],_Nw,_BETA,M,_Nt);
-		MatsubaraTimeGreen sigma_tau = std::pow(_U,2) * g0_tau * g0_tau * g0_tau;
-		MatsubaraFreqGreen sigma_iw = fft_Fourier(&sigma_tau[0],_Nt,_BETA,_Nw);
-
-		G_iw = inverse(inverse(g0_iw) - sigma_iw);
-
-		double distance = dist(G_iw,_G_iw_history);
-
-		_G_iw_history = G_iw;
-
-		return distance;
-	}
-
-private:
-	double dist(MatsubaraFreqGreen& g1, MatsubaraFreqGreen& g2) const
-	{
-		double accum = 0;
-		for(int i=0;i<_Nw;++i)
-			accum += std::norm(g1[i] - g2[i]);
-		return accum;
-	}
-
-	const double _U;
-	const double _BETA;
-	const size_t _Nt;
-	const size_t _Nw;
-
-	MatsubaraFreqGreen _G_iw_history;
-};
-
+	return D;
+}
 
 
 int main(int argc,char* argv[])
 {
-	const double BETA = 30;
-	const double U = std::atof(argv[1]);
+	// cmd parser
+	boost_argparser argparser(argc,argv);
+	argparser.add_option("beta","inverse temperature");
+	argparser.add_option("Uint","Coulomb interaction");
+	argparser.add_option("padeFile","A name of a file storing a DOS");
+	argparser.add_option("GFile","A name of a file storing a full green function");
+	argparser.store();
+
+	if(argparser.isOptionExist("help"))
+	{
+		argparser.load_help_option();
+		return 1;
+	}
+
+	const double BETA = std::atof(argparser["beta"].c_str());
+	const double U = std::atof(argparser["Uint"].c_str());
 	const size_t Nt = 10001;
 	const size_t Nw = 1000;
-	const double CONV = 1e-8;
+	const double CONV = 1e-4;
 	const size_t PADE_PRECISION = 1024;
 	const size_t PADE_N_POINTS = 220;
 	std::vector<double> M = {1,0,0.25}; // spectral moments for the non-interacting Bethe-lattice green function.
@@ -58,7 +44,11 @@ int main(int argc,char* argv[])
 	MatsubaraFreqGreen g0_iw(Nw);
 	MatsubaraFreqGreen G_iw(Nw);
 
-	G_iw = create_BetheGf(BETA,0,Nw);
+	if(argparser.isOptionExist("GFile"))
+		G_iw.read(argparser["GFile"].c_str());
+	else
+		G_iw = create_BetheGf(BETA,0,Nw);
+
 
 	IPTSolver IPT(U,BETA,Nt,Nw);
 
@@ -82,35 +72,25 @@ int main(int argc,char* argv[])
 			break;
 		}
 		numIter += 1;
-	}	
+	}
+
+	std::string fileNameFullGreen = "G_iw" + std::to_string(U) + std::string(".out");
+	G_iw.print(fileNameFullGreen.c_str(),BETA);
+
 
 	// Double occupancy
-	auto self_energy_iwn = U/2. + inverse(g0_iw) - inverse(G_iw);
+	auto self_energy_iw = U/2. + inverse(g0_iw) - inverse(G_iw);
 
-	self_energy_iwn.print("self_energy.out",BETA);
-
-	auto kernel = self_energy_iwn * G_iw;
-
-	for(auto& k : kernel)
-		k = std::conj(k);
-
-	double D = 1./(U) * (fft_InverseFourier(&kernel[0],Nw,BETA,{-U/2.,0,0},Nt))[0];
+	double D = doubleOccupancy(G_iw, self_energy_iw, U, Nt, BETA);
 
 	std::cout<<"Double occupancy:"<<D<<std::endl;
 
-	MatsubaraTimeGreen G_tau = fft_InverseFourier(&G_iw[0],Nw,BETA,M,Nt);
-
-	G_tau.print("gtau.out",BETA);
-
-	auto delta = std::pow(1./2.,2)*G_iw;
-
-	delta.print("delta.out",BETA);
 
 	// analytic-continuation with the Pade approximation.
-	if(argc >= 3)
+	if(argparser.isOptionExist("padeFile"))
 	{
 		std::cout<<"we are using the Pade approximation..."<<std::endl<<std::flush;
-		std::ofstream file(argv[2]); // argv[2]: file name for storing a DOS.
+		std::ofstream file(argparser["padeFile"].c_str()); // argv[2]: file name for storing a DOS.
 
 		PadeForGreenFunction ancPade(PADE_PRECISION);
 		ancPade.Fitting(&iOmega_n[0],&G_iw[0],PADE_N_POINTS);

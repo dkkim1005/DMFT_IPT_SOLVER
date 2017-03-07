@@ -54,7 +54,7 @@ public:
 	void setPrecision(const int PRECISION) 
 	{
 		_precision = PRECISION;
-		_x.clear();
+		std::vector<gmp_complex>().swap(_x);
 		_is_assigned_x = false;
 	}
 

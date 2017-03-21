@@ -62,9 +62,6 @@ int main(int argc,char* argv[])
 
 		double n = 1-density(G_iw,BETA,M);
 
-		// From the perturbation theory [M. Potthoff et al. PRB 55, 16132 (1997)]
-		M[1] = U*(n-1./2.); M[2] = 0.25 + std::pow(U*(n-1./2.),2) + std::pow(U,2)*n*(1-n);
-
 		std::cout<<"iter: "<<numIter<<"    |G_init - G_fin| : "<<distance<<"    filling : "<<1-n<<std::endl<<std::flush;
 		if(distance < CONV)
 		{
